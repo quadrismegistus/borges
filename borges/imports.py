@@ -1,4 +1,6 @@
 import os,sys
+sys.path.insert(0,os.path.abspath('/Users/ryan/github/yapmap'))
+from yapmap import *
 from pathlib import Path
 import logging,html
 import pysolr
@@ -18,9 +20,11 @@ PATH_HOME = os.path.join(PATH_USER_HOME,'borges_data')
 PATH_CORPORA = os.path.join(PATH_HOME,'corpora')
 PATH_CONFIG = os.path.join(PATH_HOME,'config')
 
-KEY_ID = 'id'
+KEY_ID = '_id'
 
 from .tools import *
+from .baseobj import *
+from .db import *
 from .corpus import *
 from .text import *
 from .passage import *
