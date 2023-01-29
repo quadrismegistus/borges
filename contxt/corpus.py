@@ -34,6 +34,7 @@ class BaseCorpus(BaseObject):
 
     @property
     def meta(self): return self.metadata()
+    
     @cache
     def metadata(self): 
         self.download_metadata()
@@ -41,6 +42,7 @@ class BaseCorpus(BaseObject):
         if self.col_id in set(odf.columns):
             odf=odf.set_index(self.col_id)
         return odf
+
     def download_metadata(self, force=False):
         if self.url_metadata and (force or not os.path.exists(self.path_metadata)):
             zfn=self.path_metadata+'.zip'
@@ -87,8 +89,10 @@ class BaseCorpus(BaseObject):
         )
 
 
-    @property
+    @cached_property
     def filenames_raw(self):
+        self.compile_raw()
+
         objs=[]
         for root,dirs,fns in os.walk(os.path.dirname(self.path_raw)):
             for fn in fns:
@@ -96,3 +100,29 @@ class BaseCorpus(BaseObject):
                     fnfn=os.path.join(root,fn)
                     objs.append(fnfn)
         return objs
+
+
+
+
+    def compile_metadata(self, num_proc=4, lim=None, **kwargs):
+        res=pmap(
+            self.do_compile_metadata.__func__, 
+            self.filenames_raw[:lim],
+             num_proc=num_proc, 
+             **kwargs
+        )
+        df=pd.DataFrame(res).set_index(KEY_ID)
+        df.to_csv(self.path_metadata)
+        return df
+
+    def compile_pages(self, num_proc=4, lim=None, **kwargs):
+        pmap(
+            self.do_compile_pages.__func__, 
+            self.filenames_raw[:lim], 
+            num_proc=num_proc,
+            **kwargs
+        )
+
+    def compile(self, **kwargs):
+        self.compile_metadata(**kwargs)
+        self.compile_pages(**kwargs)

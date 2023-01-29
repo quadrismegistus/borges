@@ -1,7 +1,4 @@
-from borges.imports import *
-import os,sys; sys.path.insert(0,os.path.abspath('/Users/ryan/github/yapmap'))
-from yapmap import *
-
+from contxt.imports import *
 
 def get_meta_from_raw_xml(xml_str,xml_fn):
     md={}
@@ -40,46 +37,51 @@ def get_id_from_fn(fn):
     return f'_{ChadwyckCorpus.id}/{os.path.splitext(fn_raw)[0]}'
 
 
-class ChadwyckCorpus(BaseCorpus):
-    id='chadwyck'
-    name='Chadwyck'
-    ext_raw = '.new'
-
-    def compile_metadata(self, num_proc=4, lim=None, **kwargs):
-        res=pmap(compile_metadata, self.filenames_raw[:lim], num_proc=num_proc, **kwargs)
-        df=pd.DataFrame(res).set_index(KEY_ID)
-        df.to_csv(self.path_metadata)
-
-
-def compile_metadata(fn):
-    if not os.path.exists(fn): return
+def read_xml(fn):
+    if not os.path.exists(fn): return ''
     with open(fn) as f: xml=f.read()
+    xml = html.unescape(xml)
+    return xml
     
+
+def do_compile_metadata(fn):
+    xml = read_xml(fn).split('<body>')[0]
+    if not xml: return {}
+
     ometa = get_meta_from_raw_xml(xml, fn)
     if 'year' in ometa:            
         ometa['year_str']=str(ometa['year'])
         ometa['year'] = to_yr(ometa['year'])
 
-    get_meta_solr().add(ometa)
+    DB().metadata.replace_one({KEY_ID:ometa[KEY_ID]}, ometa, upsert=True)
     return ometa
 
 
 
 
-def compile_pages(fn):
+def do_compile_pages(fn):
     if not os.path.exists(fn): return
     with open(fn) as f: xml=f.read()
     text_id=get_id_from_fn(fn)
-    solr = get_page_solr()
-    for pdx in iter_pages(xml, progress=True):
+    # solr = get_page_solr()
+    coll = DB().pages
+    # sld=[]
+    for pdx in iter_pages(xml, progress=False):
         pnum=pdx.get('page_num')
         if pnum:
+            _id=os.path.join(text_id,'page',str(pnum))
             sdx = {
-                KEY_ID:os.path.join(text_id,'page',str(pnum)),
+                KEY_ID:_id,
                 'text_id':text_id,
                 **pdx
             }
-            # return sdx
-            solr.add(sdx)
+            coll.replace_one({'_id':_id}, sdx, upsert=True)
 
-    # return ometa
+
+
+class ChadwyckCorpus(BaseCorpus):
+    id='chadwyck'
+    name='Chadwyck'
+    ext_raw = '.new'
+    do_compile_metadata = do_compile_metadata
+    do_compile_pages = do_compile_pages
