@@ -1,13 +1,13 @@
 from .imports import *
 
-def get_solr(core='borges_pages'):
+def get_solr(core='contxt_pages'):
     return pysolr.Solr(
         f'http://localhost:8983/solr/{core}/',
         always_commit=True
     )
 
-def get_meta_solr(): return get_solr(core='borges_metadata')
-def get_page_solr(): return get_solr(core='borges_pages')
+def get_meta_solr(): return get_solr(core='contxt_metadata')
+def get_page_solr(): return get_solr(core='contxt_pages')
 
 
 def get_tqdm(*args,progress=True,**kwargs):
@@ -126,19 +126,6 @@ def zeropunc(x,allow={'_'}):
 
 
 
-class BaseObject(object):
-    @property
-    def data(self): return self.__getattribute__('_data')
-
-    def __getattr__(self, __name: str) -> Any:
-        try:
-            if __name in self.data: return self.data[__name]
-            return super().__getattr__(__name)
-        except AttributeError:
-            return None
-
-    def __init__(self, *args, **kwargs):
-        self._data={**kwargs}
 
 
 def iter_zip(zipfn, desc='', ext='', decode=True, **kwargs):
