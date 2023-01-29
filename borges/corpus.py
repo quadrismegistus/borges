@@ -60,8 +60,39 @@ class BaseCorpus(BaseObject):
     def download_raw(self, force=False):
         if self.url_raw and (force or not os.path.exists(self.path_raw)):
             download(self.url_raw, self.path_raw)
+            return True
 
-    def iter_raw(self,force=False,decode=True):
+    def iter_raw(self,force=False,decode=True,**kwargs):
         self.download_raw(force=force)
-        yield from iter_zip(self.path_raw,decode=decode)
+        yield from iter_zip(self.path_raw,decode=decode,**kwargs)
         
+
+    def install(self):
+        solr = get_solr()
+        for d in self.compile():
+            solr.add(d)
+
+
+
+
+    def compile_raw(self):
+        # setup
+        if not self.url_metadata or not self.url_raw: 
+            log.error(f'url_metadata or url_raw not set')
+            return
+        self.download_raw()
+        unzip(
+            self.path_raw, 
+            os.path.dirname(self.path_raw)
+        )
+
+
+    @property
+    def filenames_raw(self):
+        objs=[]
+        for root,dirs,fns in os.walk(os.path.dirname(self.path_raw)):
+            for fn in fns:
+                if fn.endswith(self.ext_raw):
+                    fnfn=os.path.join(root,fn)
+                    objs.append(fnfn)
+        return objs

@@ -1,11 +1,14 @@
 import os,sys
 from pathlib import Path
-import logging 
+import logging,html
+import pysolr
 from typing import *
 from functools import cached_property, lru_cache as cache
 import pandas as pd
 import shutil
 import numpy as np
+import warnings
+warnings.filterwarnings('ignore')
 
 log = logging.getLogger('borges')
 

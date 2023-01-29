@@ -1,7 +1,12 @@
 from borges.imports import *
+import os,sys; sys.path.insert(0,os.path.abspath('/Users/ryan/github/yapmap'))
+from yapmap import *
+
 
 def get_meta_from_raw_xml(xml_str,xml_fn):
     md={}
+    md[KEY_ID]=get_id_from_fn(xml_fn)
+
     for line in xml_str.split('\n'):
         #if '<doc>' in line: break
 
@@ -27,4 +32,54 @@ def get_meta_from_raw_xml(xml_str,xml_fn):
     md['medium']='Fiction'
     md['subcorpus']=xml_fn.split(os.path.sep)[-2]
     md['fn_raw']=os.path.sep.join(xml_fn.split(os.path.sep)[-2:])
-    return md
+    return {str(k):str(v) for k,v in md.items()}
+
+
+def get_id_from_fn(fn):
+    fn_raw=os.path.sep.join(fn.split(os.path.sep)[-2:])
+    return f'_{ChadwyckCorpus.id}/{os.path.splitext(fn_raw)[0]}'
+
+
+class ChadwyckCorpus(BaseCorpus):
+    id='chadwyck'
+    name='Chadwyck'
+    ext_raw = '.new'
+
+    def compile_metadata(self, num_proc=4, lim=None, **kwargs):
+        res=pmap(compile_metadata, self.filenames_raw[:lim], num_proc=num_proc, **kwargs)
+        df=pd.DataFrame(res).set_index(KEY_ID)
+        df.to_csv(self.path_metadata)
+
+
+def compile_metadata(fn):
+    if not os.path.exists(fn): return
+    with open(fn) as f: xml=f.read()
+    
+    ometa = get_meta_from_raw_xml(xml, fn)
+    if 'year' in ometa:            
+        ometa['year_str']=str(ometa['year'])
+        ometa['year'] = to_yr(ometa['year'])
+
+    get_meta_solr().add(ometa)
+    return ometa
+
+
+
+
+def compile_pages(fn):
+    if not os.path.exists(fn): return
+    with open(fn) as f: xml=f.read()
+    text_id=get_id_from_fn(fn)
+    solr = get_page_solr()
+    for pdx in iter_pages(xml, progress=True):
+        pnum=pdx.get('page_num')
+        if pnum:
+            sdx = {
+                KEY_ID:os.path.join(text_id,'page',str(pnum)),
+                'text_id':text_id,
+                **pdx
+            }
+            # return sdx
+            solr.add(sdx)
+
+    # return ometa

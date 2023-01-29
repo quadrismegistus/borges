@@ -1,5 +1,13 @@
 from .imports import *
 
+def get_solr(core='borges_pages'):
+    return pysolr.Solr(
+        f'http://localhost:8983/solr/{core}/',
+        always_commit=True
+    )
+
+def get_meta_solr(): return get_solr(core='borges_metadata')
+def get_page_solr(): return get_solr(core='borges_pages')
 
 
 def get_tqdm(*args,progress=True,**kwargs):
@@ -40,18 +48,23 @@ def read_manifests():
         for corpus in config.keys()
     }
 
-def get_first(l):
-    return l[0] if l else None
+def get_first(l): 
+    for x in l: return x
+first = get_first
+
 
 def get_manifest(corpus_name_or_id):
-    return get_first([
+    return get_first(
         cd
         for cname,cd in read_manifests().items()
         if corpus_name_or_id in ({cname} if not cd.get('id') else {cname,cd['id']})
-    ])
+    )
 
 
 
+def to_yr(year_str):
+    x=''.join(x for x in year_str if x.isdigit())
+    return int(x) if x else 0
 
 
 
