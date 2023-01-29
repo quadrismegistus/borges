@@ -1,6 +1,6 @@
 configparser
 requests
 pandas
-pysolr
+# pysolr
 yapmap
 pymongo

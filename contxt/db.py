@@ -7,7 +7,7 @@ class DB(BaseObject):
     @cached_property
     def client(self): return MongoClient()
     @cached_property
-    def db(self): return self.client['borges']
+    def db(self): return self.client['contxt']
     
     @cached_property
     def metadata(self): 

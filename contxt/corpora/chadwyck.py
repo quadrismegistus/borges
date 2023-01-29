@@ -1,4 +1,4 @@
-from borges.imports import *
+from contxt.imports import *
 
 def get_meta_from_raw_xml(xml_str,xml_fn):
     md={}

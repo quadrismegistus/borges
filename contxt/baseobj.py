@@ -15,9 +15,6 @@ class BaseObject(object):
     def __init__(self, *args, **kwargs):
         self._data={**kwargs}
 
-
-
-
     @cached_property
     def db(self): 
         from .db import DB
