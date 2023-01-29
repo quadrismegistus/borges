@@ -122,3 +122,7 @@ class BaseCorpus(BaseObject):
             num_proc=num_proc,
             **kwargs
         )
+
+    def compile(self, **kwargs):
+        self.compile_metadata(**kwargs)
+        self.compile_pages(**kwargs)

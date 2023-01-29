@@ -1,13 +1,13 @@
 from .imports import *
 
-def get_solr(core='borges_pages'):
+def get_solr(core='contxt_pages'):
     return pysolr.Solr(
         f'http://localhost:8983/solr/{core}/',
         always_commit=True
     )
 
-def get_meta_solr(): return get_solr(core='borges_metadata')
-def get_page_solr(): return get_solr(core='borges_pages')
+def get_meta_solr(): return get_solr(core='contxt_metadata')
+def get_page_solr(): return get_solr(core='contxt_pages')
 
 
 def get_tqdm(*args,progress=True,**kwargs):
