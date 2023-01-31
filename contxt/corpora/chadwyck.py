@@ -78,6 +78,34 @@ def do_compile_pages(fn):
             coll.replace_one({'_id':_id}, sdx, upsert=True)
 
 
+def do_compile_sents(fn, force=True):
+    if not os.path.exists(fn): return
+    with open(fn) as f: xml=f.read()
+    text_id=get_id_from_fn(fn)
+    coll = DB().sents_text
+    if not force and DB().sents_text.find_one({'text_id':text_id}):
+        # print(f'skipping {fn}')
+        return
+
+    ql=[]
+    for sent_d in iter_sents_xml(xml):
+        sent_num = sent_d.get('sent_i')
+        if sent_num is not None:
+            _id=f'{text_id}/sent/{sent_num}'
+            sdx = {
+                KEY_ID:_id,
+                'text_id':text_id,
+                'sent_id':hashstr(sent_d.get('sent')),
+                **sent_d
+            }
+            # coll.replace_one({'_id':_id}, sdx, upsert=True)
+            # upsert(coll,sdx)
+            q=ReplaceOne({'_id':_id}, sdx, upsert=True)
+            ql.append(q)
+    
+    # with timer(f'upserting {len(ql)} sentences'):
+    if ql:
+        DB().sents_text.bulk_write(ql)
 
 class ChadwyckCorpus(BaseCorpus):
     id='chadwyck'
@@ -85,3 +113,4 @@ class ChadwyckCorpus(BaseCorpus):
     ext_raw = '.new'
     do_compile_metadata = do_compile_metadata
     do_compile_pages = do_compile_pages
+    do_compile_sents = do_compile_sents
