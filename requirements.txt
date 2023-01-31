@@ -4,3 +4,7 @@ pandas
 # pysolr
 yapmap
 pymongo
+flair
+bs4
+nltk
+sentence-transformers

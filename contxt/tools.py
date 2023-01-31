@@ -1,5 +1,51 @@
 from .imports import *
 
+THREADWORKERS=None
+def get_workers(n=NUM_CPU*2):
+    global THREADWORKERS
+    if THREADWORKERS is None:
+        THREADWORKERS = ThreadPool(n)
+    return THREADWORKERS
+
+def stop_workers():
+    global THREADWORKERS
+    if THREADWORKERS is not None:
+        with timer('workers heading home'):
+            THREADWORKERS.close()
+            THREADWORKERS.join()
+            THREADWORKERS = None
+
+def to_bytes(x):
+    return str(x).encode() if type(x)!=bytes else x
+
+def compress(data):
+    import brotli,base64
+    data_zip = brotli.compress(to_bytes(data))
+    data_zip_b64=base64.b64encode(data_zip)
+    data_zip_b64_str=data_zip_b64.decode()
+    return data_zip_b64_str
+
+def decompress(data_zip_b64_str):
+    import brotli,base64
+    data_zip_b64=to_bytes(data_zip_b64_str)
+    data_zip = base64.b64decode(data_zip_b64)
+    data = brotli.decompress(data_zip)
+    data_str = data.decode()
+    return data_str
+
+
+def hashstr(x):
+    import hashlib
+    return hashlib.sha224(str(x).encode('utf-8')).hexdigest()
+
+def ishashish(x): 
+    return type(x) in {str,bytes} and len(x)==56 and x.isalnum()
+
+def to_nl(x): return x.replace('\r\n','\n').replace('\r','\n')
+
+def oneline(txt):
+    return to_nl(txt).replace('\n',' ').replace('  ',' ').strip()
+
 def get_solr(core='contxt_pages'):
     return pysolr.Solr(
         f'http://localhost:8983/solr/{core}/',
@@ -174,3 +220,52 @@ def unzip(zipfn, dest='.', flatten=False, overwrite=False, replace_in_filenames=
                     shutil.copyfileobj(source, target)
             except FileNotFoundError:
                 print('!! File not found:',target_fnfn)
+
+
+
+class timer:
+    def __init__(self,desc='timer'):
+        self.desc=desc
+        print(f'{self.desc} ...', end=' ', flush=True)
+
+    def __enter__(self):
+        self.now=time.time()
+        return self
+
+    def __exit__(self,*x,**y):
+        # print(f'{self.desc} elapsed in {round(time.time() - self.now, 1)}s')
+        print(f'{round(time.time() - self.now, 2)}s', flush=True)
+
+
+
+
+def clean_text(txt):
+    import ftfy,html
+    txt=ftfy.fix_text(html.unescape(txt))
+    replacements={
+        '&eacute':'é',
+        '&hyphen;':'-',
+        '&sblank;':'--',
+        '&mdash;':' -- ',
+        '&ndash;':' - ',
+        '&longs;':'s',
+        '&wblank':' -- ',
+        u'\u2223':'',
+        u'\u2014':' -- ',
+        # '|':'',
+        '&ldquo;':u'“',
+        '&rdquo;':u'”',
+        '&lsquo;':u'‘’',
+        '&rsquo;':u'’',
+        '&indent;':'     ',
+        '&amp;':'&',
+        '&euml;':'ë',
+        '&uuml;':'ü',
+        '&auml;':'ä',
+    }
+    for k,v in list(replacements.items()):
+        if k in txt:
+            txt=txt.replace(k,v)
+        elif k.startswith('&') and k.endswith(';') and k[:-1] in txt:
+            txt=txt.replace(k[:-1],v)
+    return txt
