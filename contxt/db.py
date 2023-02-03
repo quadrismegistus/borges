@@ -1,4 +1,5 @@
 from .imports import *
+DEFAULT_DB='contxt'
 
 def upsert(coll, value, id_key='_id'):
     if not id_key in value or not value[id_key]: return
@@ -12,13 +13,22 @@ def upsert(coll, value, id_key='_id'):
 
 
 @cache
-def DB(): return DataDB()
+def DB(db=DEFAULT_DB): return DataDB(db)
 
 class DataDB(BaseObject):
+    def __init__(self, db=DEFAULT_DB): 
+        self._dbname=db
+
+    def __enter__(self):
+        self.client
+        return self
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.client.close()
+
     @cached_property
     def client(self): return MongoClient()
     @cached_property
-    def db(self): return self.client['contxt']
+    def db(self): return self.client[self._dbname]
     
     @cached_property
     def metadata(self): 
@@ -41,6 +51,7 @@ class DataDB(BaseObject):
     def sents_text(self): 
         coll=self.db['sents_text']
         coll.create_index('text_id')
+        coll.create_index('corpus_id')
         coll.create_index('sent_id')
         coll.create_index([('sent', 'text')])
         return coll
@@ -70,6 +81,43 @@ class DataDB(BaseObject):
     # def cache(self, name):
     #     from sqlitedict import SqliteDict
     #     return SqliteDict()
+
+
+
+
+
+class MongoDict(UserDict):
+    def __init__(self, collection, db=DEFAULT_DB):
+        self.name=collection
+        self.db=DB(db).db[collection]
+
+    def __getitem__(self, key):
+        res=self.db.find_one(key)
+        if res: return res.get('val')
+    
+    def __setitem__(self, key, val):
+        upsert(self.db, {'_id':key, 'val':val})
+
+
+class HashDict:
+    def __init__(self, id='contxt_hasher'):
+        self.db=MongoDict('hashtable', db=id)
+    
+    def __getitem__(self, sent_or_hash): return self.get(sent_or_hash)
+    def __call__(self, sent_or_hash): return self.get(sent_or_hash)
+
+    def get(self, sent_or_hash):
+        sent_or_hash = str(sent_or_hash)
+        if not ishashish(sent_or_hash):
+            # sent to hash
+            skey=hashstr(sent_or_hash)
+            self.db[skey]=str(sent_or_hash)
+            return skey
+        else:
+            # hash to sent
+            return self.db[sent_or_hash]
+H=Hasher=HashDict()
+
 
 
 
@@ -204,36 +252,80 @@ class VectorDB(BaseObject):
             request_timeout=60
         )
         hits = dict(res).get('hits',{}).get('hits',[])
-        return hits
-        # hashes = [d.get('_id') for d in hits]
-        # strings = [Hasher().get(x) for x in hashes]
-        # return strings
+        return [
+            (d.get('_source',{}).get('sent'), d.get('_score',np.nan))
+            for d in hits
+        ][:n]
 
 
 
-class MongoDict(UserDict):
-    def __init__(self, id):
-        self.db=DB().db[id]
 
-    def __getitem__(self, key):
-        res=self.db.find_one(key)
-        if res: return res.get('val')
+
+
+
+
+
+
+
+
+
+
+from qdrant_client import QdrantClient
+from qdrant_client.http.models import Distance, VectorParams, PointStruct, Filter, FieldCondition, Match
+from qdrant_client.http.exceptions import UnexpectedResponse
+
+class QdrantVectorDB(BaseObject):
+    def __init__(self, name, num_dims, host='localhost', port=6333, **kwargs):
+        self.name=f'{name}__{num_dims}dim'.lower()
+        self.num_dims=num_dims
+        self.host=host
+        self.port=port
+
+
+    @cached_property
+    def client(self):
+        client = QdrantClient(host=self.host, port=self.port)
+        try:
+            client.http.collections_api.get_collection(self.name)
+        except UnexpectedResponse:
+            client.recreate_collection(
+                collection_name=self.name,
+                vectors_config=VectorParams(size=self.num_dims, distance=Distance.COSINE),
+            )
+        return client
+
+    def set(self, sent, vec):
+        sent = str(sent)
+        id = hashint(sent)
+        self.client.upsert(
+            collection_name=self.name,
+            points=[PointStruct(id=id, payload={'sent':sent}, vector=list(vec))],
+            wait=False
+        )
+
+    def get(self, sent, default=None):
+        sent = str(sent)
+        res = self.client.retrieve(
+            collection_name=self.name,
+            ids=[hashint(sent)],
+            with_payload=False,
+            with_vectors=True
+        )
+        # return res[0].vector if res and hasattr(res[0],'vector') else default
+        return res if res else default
     
-    def __setitem__(self, key, val):
-        upsert(self.db, {'_id':key, 'val':val})
+    def has(self, sent):
+        return self.get(sent,default=None) is not None
 
-
-class Hasher:
-    def __init__(self, id='contxt_hasher'):
-        self.db=MongoDict(id)
-
-    def get(self, sent_or_hash):
-        if not ishashish(sent_or_hash):
-            # sent to hash
-            skey=hashstr(sent_or_hash)
-            self.db[skey]=str(sent_or_hash)
-            return skey
-        else:
-            # hash to sent
-            return self.db[sent_or_hash]
-
+    def nearby(self, vec, n=3):
+        hits = self.client.search(
+            collection_name=self.name,
+            query_vector=list(vec),
+            # append_payload=True,  # Also return a stored payload for found points
+            limit=n+1  # Return 5 closest points
+        )
+        return [
+            (hit.payload.get('sent'), hit.score)
+            for hit in hits
+            if hit.score < 1.0  ## no exact matches
+        ][:n]

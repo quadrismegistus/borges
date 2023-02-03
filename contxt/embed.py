@@ -1,8 +1,8 @@
 from .imports import *
 
 DEFAULT_SENTEMBED_METHOD='sentence-transformers'
-# DEFAULT_SENTEMBED_MODEL='all-MiniLM-L6-v2'
-DEFAULT_SENTEMBED_MODEL='all-mpnet-base-v2'
+DEFAULT_SENTEMBED_MODEL='all-MiniLM-L6-v2'
+# DEFAULT_SENTEMBED_MODEL='all-mpnet-base-v2'
 # DEFAULT_SENTEMBED_MODEL='paraphrase-MiniLM-L3-v2'
 # DEFAULT_SENTEMBED_MODEL='sentence-t5-xxl'
 # DEFAULT_SENTEMBED_MODEL='all-roberta-large-v1'
@@ -58,7 +58,7 @@ class EmbeddingObject:
 
     @cached_property
     def vdb(self):
-        return VectorDB(name=self.name, num_dims=self.num_dims)
+        return QdrantVectorDB(name=self.name, num_dims=self.num_dims)
 
     def nearest(self, sent):
         for sent in self.nearby(sent, n=1): return sent
@@ -123,12 +123,8 @@ class SentenceEmbeddingObject(EmbeddingObject):
         return l
 
     def nearby(self, sent, n=3, **kwargs):
-        evec = self.embed(sent, as_array=True, save=False)
         from .sent import Sent
-        return [
-            (Sent(d.get('_source',{}).get('sent')), d.get('_score',np.nan))
-            for d in self.vdb.nearby(evec, n=n+1, **kwargs)
-            if d.get('_source',{}).get('sent') != str(sent)
-        ][:n]
+        evec = self.embed(sent, as_array=True, save=False)
+        return [(Sent(x),score) for x,score in self.vdb.nearby(evec, n=n, **kwargs)]
 
 

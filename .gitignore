@@ -3,3 +3,4 @@ venv
 bak
 dev_*
 *.out
+*.egg-info
