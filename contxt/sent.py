@@ -1,7 +1,9 @@
 from .imports import *
 
 def tokenize_sents(txt):
-    return get_nltk().sent_tokenize(txt)
+    #return get_nltk().sent_tokenize(txt)
+    from flair.tokenization import split_multi
+    return split_multi(txt)
 
 def iter_sents_xml(xml, para_tag='p', sent_tag='s', progress=False):
     dom=get_dom(xml)
@@ -15,8 +17,6 @@ def iter_sents_xml(xml, para_tag='p', sent_tag='s', progress=False):
         if not sents:
             sents=tokenize_sents(para.text)
         for sent in sents:
-            para_i+=1
-            sent_i+=1
             sent_str = oneline(sent if type(sent)==str else sent.text)
             # xml_tree = para_tree if type(sent)==str else get_tree_id(sent)
             yield {
@@ -25,6 +25,35 @@ def iter_sents_xml(xml, para_tag='p', sent_tag='s', progress=False):
                 # 'xml_tree': xml_tree,
                 'sent':sent_str
             }
+            para_i+=1
+            sent_i+=1
+
+
+
+
+def iter_sents_in_str(string):
+    string = clean_text(string).strip()
+    lines = '\n'.join([ln.strip() for ln in string.split('\n')])
+    paras = list(lines.split('\n\n'))
+    si=0
+    pi=0
+    for para in paras:
+        thisparaadded=False
+        for sent in tokenize_sents(para.strip()):
+            words=sent.split()
+            numalw = [w for w in words if w.isalpha()]
+            if numalw and set(sent.lower())-{'i','v','x'}:  # to remove bogus lines, require at least one token in line to be entirely alphabet-composed and even then for there to be more letters present than the common roman numerals of i,v,x
+                yield dict(
+                    para_i=pi, 
+                    sent_i=si,
+                    sent=oneline(sent)
+                )
+                si+=1
+                thisparaadded=True
+        if thisparaadded:
+            pi+=1
+        
+
 
 
 def iter_sents(progress=True, lim=None, as_obj=True,**kwargs):
@@ -130,6 +159,7 @@ def embed_sents(lim=10, num_proc=1, shuffle=True, desc='Embedding known sentence
             lim = lim,
             desc = desc,
             # kwargs=dict(embedding_model=e),
+            use_threads=True,
             **kwargs
             # use_torch=True
             ):

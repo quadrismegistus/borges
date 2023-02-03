@@ -1,6 +1,6 @@
 import warnings
 warnings.filterwarnings('ignore')
-import os,sys,time
+import os,sys,time,shutil
 sys.path.insert(0,os.path.abspath('/Users/ryan/github/yapmap'))
 from yapmap import *
 import multiprocessing
@@ -26,6 +26,7 @@ from threading import Thread
 import pymongo
 from pymongo import MongoClient, UpdateOne, ReplaceOne
 from pymongo.errors import DuplicateKeyError
+import click
 
 
 log = logging.getLogger('contxt')

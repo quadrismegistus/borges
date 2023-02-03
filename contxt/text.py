@@ -49,3 +49,6 @@ def get_tree_id_str(tag):
     l = get_tree_id(tag)
     return ' > '.join(f'{n}.{t}' for n,t in l)
     
+
+
+def Text(x): return TextObject(x)

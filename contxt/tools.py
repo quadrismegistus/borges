@@ -4,6 +4,7 @@ THREADWORKERS=None
 def get_workers(n=NUM_CPU*2):
     global THREADWORKERS
     if THREADWORKERS is None:
+        print(f'creating threadpool with {n} workers')
         THREADWORKERS = ThreadPool(n)
     return THREADWORKERS
 
@@ -269,3 +270,15 @@ def clean_text(txt):
         elif k.startswith('&') and k.endswith(';') and k[:-1] in txt:
             txt=txt.replace(k[:-1],v)
     return txt
+
+
+
+def serialize_int(s):
+    return int.from_bytes(s.encode(), 'little')
+
+def unserialize_int(n):
+    import math
+    return n.to_bytes(math.ceil(n.bit_length() / 8), 'little').decode()
+
+
+def hashint(x): return serialize_int(hashstr(x)[:8])
