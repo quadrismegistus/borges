@@ -8,3 +8,5 @@ flair
 bs4
 nltk
 sentence-transformers
+multiprocess
+qdrant_client

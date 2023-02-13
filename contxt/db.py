@@ -129,7 +129,7 @@ H=Hasher=HashDict()
 
 ## adapted from https://github.com/Zenika/elasticsearch-semantic-search/blob/c7cbfea6de22b3af2d050ba115c0d11ba3b1f8b2/es/esFunctions.py
 
-from elasticsearch import NotFoundError
+# from elasticsearch import NotFoundError
 
 def get_eclient():
     from elasticsearch import Elasticsearch
@@ -294,6 +294,9 @@ class QdrantVectorDB(BaseObject):
             )
         return client
 
+    def drop(self):
+        return self.client.delete_collection(self.name)
+
     def set(self, sent, vec):
         sent = str(sent)
         id = hashint(sent)
@@ -308,24 +311,38 @@ class QdrantVectorDB(BaseObject):
         res = self.client.retrieve(
             collection_name=self.name,
             ids=[hashint(sent)],
-            with_payload=False,
+            with_payload=True,
             with_vectors=True
         )
         # return res[0].vector if res and hasattr(res[0],'vector') else default
         return res if res else default
+
+    def get_vec(self, veckey, default=None):
+        res = self.get(veckey, default=[])
+        obj = first(res)
+        return obj.vector if obj else default
+    
+    def get_vecs(self, veckeys, default=None):
+        res = []
+        for vk in veckeys:
+            res.append(self.get_vec(vk, default=[]))
+        return res if res else default
+    
     
     def has(self, sent):
         return self.get(sent,default=None) is not None
 
     def nearby(self, vec, n=3):
-        hits = self.client.search(
-            collection_name=self.name,
-            query_vector=list(vec),
-            # append_payload=True,  # Also return a stored payload for found points
-            limit=n+1  # Return 5 closest points
-        )
-        return [
-            (hit.payload.get('sent'), hit.score)
-            for hit in hits
-            if hit.score < 1.0  ## no exact matches
-        ][:n]
+        if type(vec)==str: vec=self.get_vec(vec)
+        if vec is not None:
+            hits = self.client.search(
+                collection_name=self.name,
+                query_vector=list(vec),
+                # append_payload=True,  # Also return a stored payload for found points
+                limit=n+1  # Return 5 closest points
+            )
+            return [
+                (hit.payload.get('sent'), hit.score)
+                for hit in hits
+                if hit.score < 1.0  ## no exact matches
+            ][:n]

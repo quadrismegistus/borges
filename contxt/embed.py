@@ -51,6 +51,10 @@ class EmbeddingObject:
     def __init__(self, name, embedding):
         self.name = name
         self.embedding = embedding
+    
+    def save_embed(self, sent, embed):
+        l=embed.tolist() if hasattr(embed,'tolist') else list(embed)
+        self.vdb.set(sent, l)
 
     @cached_property
     def num_dims(self):
@@ -64,23 +68,17 @@ class EmbeddingObject:
         for sent in self.nearby(sent, n=1): return sent
 
 class TokenEmbeddingObject(EmbeddingObject):
-    def embed(self, sent, save=True, force=False):
-        # res in db?
-        # # get new
+    def _key(self, sent, i): return f'{i:06}__{sent.tokens[i]}__{sent}'
+    def _keys(self, sent): return [self._key(sent,i) for i in range(len(sent.tokens))]
+
+    def embed(self, sent, save=False, force=False, **kwargs):
         from .sent import Sent
         sent=Sent(sent)
         sentnlp=sent.flair
-        numtoks = len(sentnlp)
-        def _key(i): return f'{i+1:06}__{sent.tokens[i]}__{sent}'
-        keytoks = [_key(i) for i in range(numtoks)]
         inames=('sent','tok_i','tok')
-
         if not force:
-            res_l=[
-                self.vdb.get(tok_key,{}).get('_source',{}).get('vec')
-                for tok_key in keytoks
-            ]
-            if not any(x is None for x in res_l) and len(res_l) == len(sent.tokens):
+            res_l = self.vdb.get_vecs(self._keys(sent), default=[])
+            if all(res_l) and len(res_l) == len(sent.tokens):
                 idata=[(sent.sent, i+1, token) for i,token in enumerate(sent.tokens)]
                 return pd.DataFrame(res_l, index=pd.MultiIndex.from_tuples(idata,names=inames))
 
@@ -88,27 +86,37 @@ class TokenEmbeddingObject(EmbeddingObject):
         self.embedding.embed(sentnlp)
         indices=[]
         rows=[]
-        for i,token in enumerate(sentnlp):
-            token_index = _key(i)
+        keys=self._keys(sent)
+        for i,(token,token_index) in enumerate(zip(sentnlp,keys)):
             token_embed = token.embedding.tolist()
             if token_index and token_embed:
-                self.vdb.set(token_index,token_embed)
+                if save: self.vdb.set(token_index,token_embed) 
                 indices.append((sent.sent, i+1, token.text))
                 rows.append(token_embed)
         df = pd.DataFrame(rows, index=pd.MultiIndex.from_tuples(indices, names=inames))
         return df
 
+    def nearby(self, sent, i=None, word=None, n=3):
+        from .sent import Sent
+        sent = Sent(sent)
+        vals = self.embed(sent).values.tolist()
+        keys = self._keys(sent)
+        assert len(vals) == len(keys)
+        odx={
+            vk:self.vdb.nearby(vals[_i], n=n)
+            for _i,vk in enumerate(keys)
+            if (i is None or i==_i)
+            and (word is None or f'__{word}__' in vk)
+        }
+        if i or word and len(odx)==1: return list(odx.values())[0]
 
 class SentenceEmbeddingObject(EmbeddingObject):
-    def save_embed(self, sent, embed):
-        l=embed.tolist() if hasattr(embed,'tolist') else list(embed)
-        self.vdb.set(sent, l)
-
-    def embed(self, sent, save=False, force=False, as_array=False, as_list=False, as_df=True):
+    def embed(self, sent, save=False, force=False, as_array=False, as_list=False, as_df=True, **kwargs):
         # res in db?
         l=[]
         if not force:
-            l=self.vdb.get(sent,{}).get('_source',{}).get('vec',[])
+            l=self.vdb.get_vec(sent)
+            if l: print('from db')
         if not l:
             # get new
             from .sent import Sent
