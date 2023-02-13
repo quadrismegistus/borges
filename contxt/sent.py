@@ -167,3 +167,26 @@ def embed_sents(lim=10, num_proc=1, shuffle=True, desc='Embedding known sentence
         e.save_embed(sent, embed)
     
     stop_workers()
+
+
+
+
+def do_embed_tokens(sent):
+    Sent(sent).embed_tokens(save=True, force=True)
+
+def embed_tokens(sents=None, lim=10, num_proc=1, shuffle=True, desc='Embedding known sentences', **kwargs):
+    sents = list(islice(iter_sents(as_obj=False,desc='Gathering known sentences'), lim * 100 if lim else None)) if not sents else sents
+    get_workers()
+    pmap(
+        do_embed_tokens, 
+        sents,
+        num_proc=num_proc, 
+        shuffle=shuffle, 
+        lim = lim,
+        desc = desc,
+        # kwargs=dict(embedding_model=e),
+        use_threads=True,
+        **kwargs
+        # use_torch=True
+    )
+    stop_workers()

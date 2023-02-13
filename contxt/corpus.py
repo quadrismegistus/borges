@@ -124,8 +124,9 @@ class BaseCorpus(BaseObject):
         )
 
     def compile(self, **kwargs):
-        self.compile_metadata(**kwargs)
-        self.compile_pages(**kwargs)
+        # self.compile_metadata(**kwargs)
+        # self.compile_pages(**kwargs)
+        self.compile_sents(**kwargs)
 
     def compile_sents(self, num_proc=4, lim=None, **kwargs):
         pmap(
@@ -133,5 +134,6 @@ class BaseCorpus(BaseObject):
             self.filenames_raw[:lim], 
             num_proc=num_proc,
             shuffle=False,
+            # use_threads=True,
             **kwargs
         )

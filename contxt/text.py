@@ -1,5 +1,19 @@
 from .imports import *
 
+
+@cache
+def get_tree_id(tag, bad_tags={'pb'}):
+    l=get_tree_id(tag.parent) if tag.parent else []
+    if tag.name not in bad_tags and tag.i:
+        l.append((tag.i, tag.name))
+    return l
+
+def get_tree_id_str(tag):
+    l = get_tree_id(tag)
+    return ' > '.join(f'{n}.{t}' for n,t in l)
+
+
+
 nltkobj = None
 def get_nltk():
     global nltkobj
@@ -15,10 +29,6 @@ def get_nltk():
         nltkobj = nltk
     return nltkobj
 
-def get_tree_id(tag):
-    l=list(reversed([(x.i,x.name) for x in tag.parents if x.i]))
-    l+=[(tag.i,tag.name)]
-    return ' > '.join(f'{x}.{y}' for x,y in l)
 
 def get_dom(xml):
     import bs4,html
@@ -29,26 +39,13 @@ def get_dom(xml):
 
 
 
-class TextObject(BaseObject):
-    def __init__(self):
-        pass
-
-class XMLTextObject(TextObject):
-    pass
-
-
-
-@cache
-def get_tree_id(tag, bad_tags={'pb'}):
-    l=get_tree_id(tag.parent) if tag.parent else []
-    if tag.name not in bad_tags and tag.i:
-        l.append((tag.i, tag.name))
-    return l
-
-def get_tree_id_str(tag):
-    l = get_tree_id(tag)
-    return ' > '.join(f'{n}.{t}' for n,t in l)
-    
-
 
 def Text(x): return TextObject(x)
+
+class TextObject(BaseObject):
+    def __init__(self, _id=None):
+        self._id=_id
+
+
+
+class XMLTextObject(TextObject): pass
