@@ -4,3 +4,4 @@ bak
 dev_*
 *.out
 *.egg-info
+.ipynb_checkpoints

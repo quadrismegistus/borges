@@ -318,9 +318,16 @@ class QdrantVectorDB(BaseObject):
         return res if res else default
 
     def get_vec(self, veckey, default=None):
-        res = self.get(veckey, default=[])
-        obj = first(res)
-        return obj.vector if obj else default
+        try:
+            res = self.get(veckey, default=[])
+            obj = first(res)
+            if obj is not None and hasattr(obj,'vector'): 
+                return obj.vector
+        except Exception as e:
+            # log.error('!! '+str(e))
+            pass
+
+        return default
     
     def get_vecs(self, veckeys, default=None):
         res = []
