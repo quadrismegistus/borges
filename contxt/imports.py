@@ -26,7 +26,9 @@ from threading import Thread
 import pymongo
 from pymongo import MongoClient, UpdateOne, ReplaceOne
 from pymongo.errors import DuplicateKeyError
-import click
+import click,json
+import numpy as np
+from scipy.stats import percentileofscore
 
 
 log = logging.getLogger('contxt')
@@ -36,7 +38,7 @@ PATH_USER_HOME = str(Path.home())
 PATH_HOME = os.path.join(PATH_USER_HOME,'contxt_data')
 PATH_CORPORA = os.path.join(PATH_HOME,'corpora')
 PATH_CONFIG = os.path.join(PATH_HOME,'config')
-NUM_CPU
+PATH_DATA = os.path.join(PATH_HOME,'data')
 
 THREADWORKERS = None
 
@@ -54,3 +56,4 @@ from .sent import *
 from .page import *
 from .passage import *
 from .corpora import *
+from .absconc import *

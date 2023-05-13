@@ -1,5 +1,8 @@
 from .imports import *
 
+def tokenize_sents_str(txt):
+    return get_nltk().sent_tokenize(txt)
+
 def tokenize_sents(txt):
     #return get_nltk().sent_tokenize(txt)
     from flair.tokenization import split_multi
