@@ -79,6 +79,14 @@ def ensure_dir(dirname):
 def setup_user():
     ensure_dir(PATH_HOME)
 
+def ensure_link(actual_src,symbolic_link, overwrite=True):
+    if os.path.exists(symbolic_link): 
+        if not overwrite: return
+        os.unlink(symbolic_link)
+    os.symlink(
+        os.path.abspath(actual_src), 
+        os.path.abspath(symbolic_link)
+    )
 
 
 def read_manifests():
@@ -303,21 +311,26 @@ def pmap_iter(
         progress:bool=True, 
         **tqdm_opts
         ):
-    import multiprocess as mp
-    from tqdm import tqdm
-
-    funcobjs = [(func,obj) for obj in objs]
+    
+    from tqdm import tqdm    
     iterr = tqdm(
-        total=len(funcobjs), 
-        desc=desc, 
+        total=len(objs), 
+        desc=f'{desc} [x{num_proc}]' if num_proc>1 else desc, 
         disable=not progress, 
         **tqdm_opts
     )
-    
-    pool = mp.Pool(num_proc)
-    for res in pool.imap_unordered(_pmap_iter_, funcobjs):
-        yield res
-        iterr.update()
+
+    if len(objs)==1 or num_proc==1:
+        for obj in objs:
+            yield _pmap_iter_((func,obj))
+            iterr.update()
+    else:
+        import multiprocess as mp
+        pool = mp.Pool(num_proc)
+        funcobjs = [(func,obj) for obj in objs]
+        for res in pool.imap_unordered(_pmap_iter_, funcobjs):
+            yield res
+            iterr.update()
 
 def pmap(*args, **kwargs): return list(pmap_iter(*args,**kwargs))
 
