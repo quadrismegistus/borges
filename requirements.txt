@@ -2,7 +2,6 @@ configparser
 requests
 pandas
 # pysolr
-yapmap
 pymongo
 flair
 bs4

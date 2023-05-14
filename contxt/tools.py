@@ -282,3 +282,42 @@ def unserialize_int(n):
 
 
 def hashint(x): return serialize_int(hashstr(x)[:8])
+
+
+
+
+
+
+
+
+def _pmap_iter_(func_obj, *args, **kwargs):
+    func,obj = func_obj
+    res = func(obj, *args, **kwargs)
+    return (obj,res)
+
+def pmap_iter(
+        func:'function', 
+        objs:list, 
+        num_proc:int=1, 
+        desc:str='',
+        progress:bool=True, 
+        **tqdm_opts
+        ):
+    import multiprocess as mp
+    from tqdm import tqdm
+
+    funcobjs = [(func,obj) for obj in objs]
+    iterr = tqdm(
+        total=len(funcobjs), 
+        desc=desc, 
+        disable=not progress, 
+        **tqdm_opts
+    )
+    
+    pool = mp.Pool(num_proc)
+    for res in pool.imap_unordered(_pmap_iter_, funcobjs):
+        yield res
+        iterr.update()
+
+def pmap(*args, **kwargs): return list(pmap_iter(*args,**kwargs))
+
